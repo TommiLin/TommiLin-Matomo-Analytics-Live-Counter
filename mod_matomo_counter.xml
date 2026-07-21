@@ -10,10 +10,11 @@
     <version>1.2.2</version>
     <description>MOD_MATOMO_COUNTER_DESCRIPTION</description>
     <namespace path="src">TommiLin\Module\MatomoCounter</namespace>
+    <scriptfile>script.php</scriptfile>
     
     <updateservers>
     <server type="extension" priority="1">
-        https://raw.githubusercontent.com/TommiLin/Matomo-Analytics-Live-Counter/main/updates.xml
+        https://raw.githubusercontent.com/TommiLin/TommiLin-Matomo-Analytics-Live-Counter/main/updates.xml
     </server>
     </updateservers>
     
@@ -61,6 +62,11 @@
                     <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
                 </field>
                 <field name="show_today_views" type="list" default="1" label="MOD_MATOMO_COUNTER_METRIC_TODAY_VIEWS">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="show_yesterday" type="list" default="1" label="MOD_MATOMO_COUNTER_METRIC_YESTERDAY">
                     <option value="1">JSHOW</option>
                     <option value="0">JHIDE</option>
                     <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
