@@ -59,7 +59,7 @@ $doc->addStyleDeclaration("
 $getSvgPath = function($values, $max) {
     if (empty($values)) return ['points' => [], 'str' => '45,75 370,75'];
     $points = [];
-    $startX = 45; // Відступ для крупного шрифту 15px
+    $startX = 45; // For large font 15px
     $endX = 370;
     $stepX = ($endX - $startX) / (count($values) - 1);
     foreach ($values as $i => $v) {
@@ -106,6 +106,16 @@ $isConnectionOk = !empty($stats) && isset($stats['chart7_values']) && count($sta
                     <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_VIEWS'); ?>:</span>
                 </div>
                 <div class="matomo-metric-value"><?php echo number_format($stats['today_views']); ?></div>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (!empty($visibility['yesterday'])) : ?>
+            <div class="matomo-metric-row">
+                <div class="matomo-metric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_YESTERDAY'); ?>:</span>
+                </div>
+                <div class="matomo-metric-value"><?php echo number_format($stats['yesterday'] ?? 0); ?></div>
             </div>
         <?php endif; ?>
 
@@ -192,6 +202,7 @@ $isConnectionOk = !empty($stats) && isset($stats['chart7_values']) && count($sta
                 </span>
                 <select class="matomo-dropdown-select" onchange="toggleMatomoTopCountries(this.value)">
                     <option value="day"><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_TODAY1'); ?></option>
+                    <option value="yesterday"><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_YESTERDAY_SHORT'); ?></option>
                     <option value="week">7 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
                     <option value="month">30 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
                 </select>
@@ -200,6 +211,7 @@ $isConnectionOk = !empty($stats) && isset($stats['chart7_values']) && count($sta
             <?php 
             $periodsList = [
                 'day'   => $stats['top_countries_day'] ?? [],
+                'yesterday' => $stats['top_countries_yesterday'] ?? [],
                 'week'  => $stats['top_countries_week'] ?? [],
                 'month' => $stats['top_countries_month'] ?? []
             ];
@@ -254,18 +266,21 @@ $isConnectionOk = !empty($stats) && isset($stats['chart7_values']) && count($sta
         <script>
         function toggleMatomoTopCountries(period) {
             document.getElementById('matomo-top-day').style.display = 'none';
+            document.getElementById('matomo-top-yesterday').style.display = 'none';
             document.getElementById('matomo-top-week').style.display = 'none';
             document.getElementById('matomo-top-month').style.display = 'none';
 
             if (period === 'day') {
-                document.getElementById('matomo-top-day').style.display = 'block';
-            } else if (period === 'week') {
-                document.getElementById('matomo-top-week').style.display = 'block';
-            } else if (period === 'month') {
-                document.getElementById('matomo-top-month').style.display = 'block';
-            }
-        }
-        </script>
+             document.getElementById('matomo-top-day').style.display = 'block';
+             } else if (period === 'yesterday') {
+              document.getElementById('matomo-top-yesterday').style.display = 'block';
+             } else if (period === 'week') {
+              document.getElementById('matomo-top-week').style.display = 'block';
+             } else if (period === 'month') {
+            document.getElementById('matomo-top-month').style.display = 'block';
+    }
+}
+</script>
     <?php endif; ?>
 
     <?php if ($visibility['chart']) : ?>
