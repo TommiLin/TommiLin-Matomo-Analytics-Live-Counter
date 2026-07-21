@@ -50,7 +50,7 @@ class MatomoCounterHelper
             $age = time() - filemtime($cacheFile);
             $data = json_decode(@file_get_contents($cacheFile), true);
             if ($data) {
-                // Если загружено из кеша, собираем соответствующие данные
+                // If loaded from cache, collect the corresponding data
                 $data['debug_info'] = [
                     'source'      => 'CACHE',
                     'connection'  => $data['debug_info']['connection'] ?? 'cURL',
@@ -64,7 +64,7 @@ class MatomoCounterHelper
                     'duration'    => '0 ms',
                     'size'        => round(filesize($cacheFile) / 1024, 2) . ' KB',
                     'status'      => 'Loaded from cache',
-                    'api_methods' => $data['debug_info']['api_methods'] ?? [] // Сохраняем разбор методов из кеша
+                    'api_methods' => $data['debug_info']['api_methods'] ?? [] // Saving method parsing from cache
                 ];
                 return $data;
             }
@@ -83,19 +83,35 @@ class MatomoCounterHelper
     public function fetchApiData($visibility = []) 
     {
         $startTime = microtime(true);
-        $data = ['online' => 0, 'today' => 0, 'today_views' => 0, 'week' => 0, 'month' => 0, 'countries' => [], 'top_countries_day' => [], 'top_countries_week' => [], 'top_countries_month' => [], 'chart7_labels' => [], 'chart7_values' => [], 'chart30_labels' => [], 'chart30_values' => []];
+        $data = [
+            'online' => 0, 
+            'today' => 0, 
+            'today_views' => 0, 
+            'yesterday' => 0, // 
+            'week' => 0, 
+            'month' => 0, 
+            'countries' => [], 
+            'top_countries_day' => [], 
+            'top_countries_yesterday' => [],
+            'top_countries_week' => [], 
+            'top_countries_month' => [], 
+            'chart7_labels' => [], 
+            'chart7_values' => [], 
+            'chart30_labels' => [], 
+            'chart30_values' => []
+        ];
         
         $bulkParams = [];
         $mapping = [];
         $idx = 0;
 
-        // Добавляем запрос версии Matomo в общий пул
+        // Add Matomo version request to the general pool
         $bulkParams["urls[$idx]"] = 'method=API.getMatomoVersion';
         $mapping['matomo_version'] = $idx++;
 
         if ($visibility['online'] ?? true) { $bulkParams["urls[$idx]"] = 'method=Live.getCounters&lastMinutes=3'; $mapping['online'] = $idx++; }
         
-        // ОПТИМИЗАЦИЯ: Добавлены showColumns и filter_limit для сжатия размера ответа
+        // OPTIMIZATION: Added showColumns and filter_limit to compress response size
         if ($visibility['countries'] ?? true) { 
             $bulkParams["urls[$idx]"] = 'method=Live.getLastVisitsDetails&filter_limit=100&showColumns=countryCode,countryName,visitTimestamp,lastActionTimestamp'; 
             $mapping['countries_online'] = $idx++; 
@@ -103,10 +119,12 @@ class MatomoCounterHelper
         
         if ($visibility['top_countries'] ?? true) {
             $bulkParams["urls[$idx]"] = 'method=UserCountry.getCountry&period=day&date=today&language=' . $this->shortLang; $mapping['top_day'] = $idx++;
+            $bulkParams["urls[$idx]"] = 'method=UserCountry.getCountry&period=day&date=yesterday&language=' . $this->shortLang; $mapping['top_yesterday'] = $idx++;
             $bulkParams["urls[$idx]"] = 'method=UserCountry.getCountry&period=range&date=last7&language=' . $this->shortLang; $mapping['top_week'] = $idx++;
             $bulkParams["urls[$idx]"] = 'method=UserCountry.getCountry&period=range&date=last30&language=' . $this->shortLang; $mapping['top_month'] = $idx++;
         }
         if (($visibility['today'] ?? true) || ($visibility['today_views'] ?? true)) { $bulkParams["urls[$idx]"] = 'method=VisitsSummary.get&period=day&date=today'; $mapping['summary_today'] = $idx++; }
+        if ($visibility['yesterday'] ?? true) { $bulkParams["urls[$idx]"] = 'method=VisitsSummary.get&period=day&date=yesterday'; $mapping['summary_yesterday'] = $idx++; } // <-- Запрос статистики за вчера
         if (($visibility['chart'] ?? true) || ($visibility['week'] ?? true)) { $bulkParams["urls[$idx]"] = 'method=VisitsSummary.get&period=day&date=last7'; $mapping['chart7'] = $idx++; }
         if (($visibility['chart'] ?? true) || ($visibility['month'] ?? true)) { $bulkParams["urls[$idx]"] = 'method=VisitsSummary.get&period=day&date=last30'; $mapping['chart30'] = $idx++; }
 
@@ -117,11 +135,11 @@ class MatomoCounterHelper
             return ['status' => 'error', 'message' => $res['message'] ?? 'API Error'];
         }
 
-        // Локализация для имен
+        // Localization for names
         $unknownWord = ($this->shortLang === 'uk') ? 'Невідомо' : (($this->shortLang === 'en') ? 'Unknown' : 'Неизвестно');
         $uaWord      = ($this->shortLang === 'uk') ? 'Україна' : (($this->shortLang === 'en') ? 'Ukraine' : 'Украина');
 
-        // Получаем версию Matomo
+        // Get the Matomo version
         $matomoVersion = 'Unknown';
         if (isset($mapping['matomo_version']) && isset($res[$mapping['matomo_version']]['value'])) {
             $matomoVersion = $res[$mapping['matomo_version']]['value'];
@@ -147,7 +165,7 @@ class MatomoCounterHelper
             $data['countries'] = array_slice($onlineCountries, 0, 5, true);
         }
 
-        $topMap = ['top_day' => 'top_countries_day', 'top_week' => 'top_countries_week', 'top_month' => 'top_countries_month'];
+        $topMap = ['top_day' => 'top_countries_day', 'top_yesterday' => 'top_countries_yesterday', 'top_week' => 'top_countries_week', 'top_month' => 'top_countries_month'];
         foreach ($topMap as $mKey => $dKey) {
             if (isset($mapping[$mKey]) && is_array($res[$mapping[$mKey]])) {
                 $temp = [];
@@ -165,22 +183,25 @@ class MatomoCounterHelper
         }
 
         if (isset($mapping['summary_today'])) { $s = $res[$mapping['summary_today']]; $data['today'] = $s['nb_visits'] ?? 0; $data['today_views'] = $s['nb_actions'] ?? 0; }
+        if (isset($mapping['summary_yesterday'])) { $sy = $res[$mapping['summary_yesterday']]; $data['yesterday'] = $sy['nb_visits'] ?? 0; }
         if (isset($mapping['chart7'])) { foreach ($res[$mapping['chart7']] as $d => $m) { $data['chart7_labels'][] = date('d M', strtotime($d)); $data['chart7_values'][] = $m['nb_visits'] ?? 0; $data['week'] += $m['nb_visits'] ?? 0; } }
         if (isset($mapping['chart30'])) { $i = 0; foreach ($res[$mapping['chart30']] as $d => $m) { $data['chart30_labels'][] = ($i % 5 === 0) ? date('d M', strtotime($d)) : ''; $data['chart30_values'][] = $m['nb_visits'] ?? 0; $data['month'] += $m['nb_visits'] ?? 0; $i++; } }
 
-        // Составляем карту соответствия индексов и читаемых названий методов
+        // We create a map of the correspondence between indexes and readable method names
         $methodNames = [];
         $methodNames[0] = 'API.getMatomoVersion';
         if (isset($mapping['online']))            $methodNames[$mapping['online']]            = 'Live.getCounters';
         if (isset($mapping['countries_online']))  $methodNames[$mapping['countries_online']]  = 'Live.getLastVisitsDetails';
         if (isset($mapping['top_day']))           $methodNames[$mapping['top_day']]           = 'UserCountry day';
+        if (isset($mapping['top_yesterday'])) $methodNames[$mapping['top_yesterday']] = 'UserCountry yesterday';
         if (isset($mapping['top_week']))          $methodNames[$mapping['top_week']]          = 'UserCountry last7';
         if (isset($mapping['top_month']))         $methodNames[$mapping['top_month']]         = 'UserCountry last30';
-        if (isset($mapping['summary_today']))     $methodNames[$mapping['summary_today']]     = 'VisitsSummary.get';
+        if (isset($mapping['summary_today']))     $methodNames[$mapping['summary_today']]     = 'VisitsSummary.get today';
+        if (isset($mapping['summary_yesterday'])) $methodNames[$mapping['summary_yesterday']] = 'VisitsSummary.get yesterday'; 
         if (isset($mapping['chart7']))            $methodNames[$mapping['chart7']]            = 'VisitsSummary.get last7';
         if (isset($mapping['chart30']))           $methodNames[$mapping['chart30']]           = 'VisitsSummary.get last30';
 
-        // Просчитываем размер каждого метода
+        // Calculate the size of each method
         $methodsSizes = [];
         if (is_array($res)) {
             foreach ($res as $index => $methodData) {
