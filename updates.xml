@@ -17,6 +17,6 @@
         </downloads>
         <targetplatform name="joomla" version="5.[0-9].*" regexp="1"/>
         <maintainer>TommiLin</maintainer>
-        <sha256>6c2aacaee855b02ac05a6945bcf2e690245ab73b63180e679b364e20833d519b</sha256>
+        <sha256>00ba1fa4ee17527af0dfa4142f5959f726097b91922db511272ce684bb835960</sha256>
     </update>
 </updates>
