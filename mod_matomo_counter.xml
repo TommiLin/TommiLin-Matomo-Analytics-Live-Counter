@@ -7,7 +7,7 @@
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
     <authorEmail>tomilinsergeialex@gmail.com</authorEmail>
     <authorUrl>https://github.com/TommiLin</authorUrl>
-    <version>1.2.2</version>
+    <version>1.2.4</version>
     <description>MOD_MATOMO_COUNTER_DESCRIPTION</description>
     <namespace path="src">TommiLin\Module\MatomoCounter</namespace>
     <scriptfile>script.php</scriptfile>
