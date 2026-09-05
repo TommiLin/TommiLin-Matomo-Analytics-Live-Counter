@@ -116,7 +116,7 @@ class MatomoCounterHelper
         $mapping['matomo_version'] = $idx++;
 
         if ($visibility['online'] ?? true) { 
-            $bulkParams["urls[$idx]"] = 'method=Live.getCounters&lastMinutes=3'; 
+            $bulkParams["urls[$idx]"] = 'method=Live.getCounters&lastMinutes=30'; 
             $mapping['online'] = $idx++; 
         }
         
@@ -215,7 +215,7 @@ class MatomoCounterHelper
             foreach ($res[$mapping['countries_online']] as $v) {
                 $lastAction = $v['lastActionTimestamp'] ?? $v['visitTimestamp'] ?? 0;
                 
-                if ($lastAction > ($now - 180)) {
+                if ($lastAction > ($now - 1800)) {
                     $code = !empty($v['countryCode']) ? strtolower($v['countryCode']) : 'unknown';
 
                     if (isset($countryTranslations[$code])) {
