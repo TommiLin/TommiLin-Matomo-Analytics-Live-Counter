@@ -6,7 +6,7 @@
         <element>mod_matomo_counter</element>
         <type>module</type>
         <client>site</client>
-        <version>1.2.6</version>
+        <version>1.2.5</version>
         <infourl title="GitHub">
             https://github.com/TommiLin/Matomo-Analytics-Live-Counter/releases
         </infourl>
