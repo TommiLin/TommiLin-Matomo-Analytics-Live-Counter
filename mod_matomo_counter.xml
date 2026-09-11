@@ -30,7 +30,7 @@
             <fieldset name="basic" label="COM_MODULES_BASIC_FIELDSET_LABEL">
                 <field name="matomo_url" type="url" default="" label="MOD_MATOMO_COUNTER_FIELD_URL_LABEL" description="MOD_MATOMO_COUNTER_FIELD_URL_DESC" required="true" filter="string" />
                 <field name="site_id" type="number" default="1" label="MOD_MATOMO_COUNTER_FIELD_SITEID_LABEL" required="true" />
-                <field name="token_auth" type="text" default="" label="MOD_MATOMO_COUNTER_FIELD_TOKEN_LABEL" description="MOD_MATOMO_COUNTER_FIELD_TOKEN_DESC" required="true" filter="string" />
+                <field name="token_auth" type="password" default="" label="MOD_MATOMO_COUNTER_FIELD_TOKEN_LABEL" description="MOD_MATOMO_COUNTER_FIELD_TOKEN_DESC" required="true" filter="string" />
                 <field name="cache_time" type="number" default="300" label="MOD_MATOMO_COUNTER_FIELD_CACHE_LABEL" required="true" />
                 <field name="force_language" type="list" default="site" label="MOD_MATOMO_COUNTER_FIELD_FORCE_LANG_LABEL" description="MOD_MATOMO_COUNTER_FIELD_FORCE_LANG_DESC">
                     <option value="site">MOD_MATOMO_COUNTER_LANG_AUTO</option>
