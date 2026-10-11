@@ -6,7 +6,7 @@
         <element>mod_matomo_counter</element>
         <type>module</type>
         <client>site</client>
-        <version>1.2.8</version>
+        <version>1.2.7</version>
         <infourl title="GitHub">
             https://github.com/TommiLin/Matomo-Analytics-Live-Counter/releases
         </infourl>
@@ -15,7 +15,7 @@
                 https://github.com/TommiLin/TommiLin-Matomo-Analytics-Live-Counter/releases/download/v1.2.7/Matomo-Analytics-Live-Counter-1.2.7.zip
             </downloadurl>
         </downloads>
-        <targetplatform name="joomla" version="5.[0-9].*" regexp="1"/>
+        <targetplatform name="joomla" version="(4|5|6)\.[0-9].*" regexp="1"/>
         <maintainer>TommiLin</maintainer>
         <sha256>406cca988c891fc3335a1b2443fe1deb1b0a8ea1f3312b06a9374e660ee37494</sha256>
     </update>
