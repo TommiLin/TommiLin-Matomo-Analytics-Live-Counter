@@ -5,444 +5,459 @@
  *
  * @copyright   Copyright (C) 2026 TommiLin. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ *
+ * Variables from ModuleRenderer: $module, $params, $t (Translator), $stats, $visibility, $isAdmin,
+ * $debugMode, $matomoUrl, $chartStyle (default style), $canRefresh, $errorText, $window, $rows.
+ *
+ * No inline styles or scripts here on purpose: they live in media/mod_matomo_counter (strict CSP friendly).
  */
 defined('_JEXEC') or die;
 
-$doc = \Joomla\CMS\Factory::getApplication()->getDocument();
-$doc->addStyleDeclaration("
-    .matomo-live-card {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #ffffff;
-        border: 1px solid #f0f2f5;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-        max-width: 420px;
-        color: #0f172a;
-        margin: 0 auto;
-        padding: 30px;
-    }
-    .matomo-card-header { padding: 1px 1px 14px 12px; display: flex; justify-content: space-between; align-items: flex-start; }
-    .matomo-card-title { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; color: #0f172a; line-height: 1.3; text-transform: uppercase; margin: 0; }
-    .matomo-section { padding: 14px 2px; border-top: 1px solid #f1f5f9; }
-    .matomo-metric-row { display: flex; align-items: center; justify-content: space-between; padding: 1px 0; font-size: 14px; color: #475569; }
-    .matomo-metric-label { display: flex; align-items: center; gap: 12px; }
-    .matomo-metric-value { font-weight: 600; color: #0f172a; }
-    .matomo-metric-value.online { color: #10b981; font-weight: 700; }
-    .matomo-section-title { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .matomo-badge-count { background: #f1f5f9; color: #475569; font-size: 11px; padding: 1px 7px; border-radius: 4px; }
-    .matomo-flag-wrapper { width: 16px; height: 12px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); vertical-align: middle; }
-    .matomo-flag-img { width: 16px; height: 12px; object-fit: cover; display: block; }
-    .matomo-dot-indicator { width: 6px; height: 6px; background-color: #10b981; border-radius: 50%; display: inline-block; }
-    .matomo-dropdown-select { border: 1px solid #e2e8f0; font-size: 11px; padding: 2px 6px; border-radius: 6px; color: #475569; background: #fff; cursor: pointer; }
-    .matomo-card-footer { padding: 12px 22px; border-top: 1px solid #f1f5f9; background-color: #fafafa; border-radius: 0 0 12px 12px; }
-    .matomo-debug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 8px; border-top: 1px dashed #e2e8f0; padding-top: 8px; }
-    .matomo-debug-item { display: flex; justify-content: space-between; font-size: 11px; }
-    .matomo-debug-label { color: #94a3b8; }
-    .matomo-debug-value { font-weight: 500; color: #475569; }
-    .d-flex { display: flex !important; }
-    .align-items-center { align-items: center !important; }
-    .gap-2 { gap: 0.5rem !important; }
-    .gap-3 { gap: 0.75rem !important; }
-    .matomo-chart-dot { cursor: pointer; transition: all 0.15s ease-in-out; }
-    .matomo-chart-dot:hover { r: 7.5 !important; fill: #1d4ed8 !important; }
-    .matomo-chart-block {
-    width: 100%;
-    min-width: 0;
-    overflow: hidden;}
-    .matomo-chart-block svg {
-    display: block;
-    width: 100%;
-    height: auto;}
-");
+$uid   = (int) ($module->id ?? 0);
+$meta  = $stats['meta'] ?? [];
+$e     = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+$tr    = function ($key, ...$args) use ($t, $e) { return $e($t->t($key, ...$args)); };
+$num   = function ($n) { return number_format((float) $n); };
+$f     = function ($v) { return sprintf('%.1F', $v); };
 
-
-$getSvgPath = function($values, $max) {
-    if (empty($values)) return ['points' => [], 'str' => '45,75 370,75'];
-    $points = [];
-    $startX = 45; // For large font 15px
-    $endX = 370;
-    $stepX = ($endX - $startX) / (count($values) - 1);
-    foreach ($values as $i => $v) {
-        $ptX = $startX + ($i * $stepX);
-        $ptY = 75 - (($v / ($max ?: 10)) * 60);
-        $points[] = "$ptX,$ptY";
-    }
-    return ['points' => $points, 'str' => implode(' ', $points)];
+$icon = function ($paths, $class = 'matomo-title-icon') {
+    return '<svg class="' . $class . '" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
 };
 
-$max7  = !empty($stats['chart7_values']) ? max($stats['chart7_values']) : 10;
-$max30 = !empty($stats['chart30_values']) ? max($stats['chart30_values']) : 10;
+$icons = [
+    'globe'    => '<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>',
+    'pin'      => '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
+    'pie'      => '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path>',
+    'bars'     => '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
+    'file'     => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>',
+    'link'     => '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>',
+    'monitor'  => '<rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>',
+    'trend'    => '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+];
 
-$path7  = $getSvgPath($stats['chart7_values'], $max7);
-$path30 = $getSvgPath($stats['chart30_values'], $max30);
-$isConnectionOk = !empty($stats) && isset($stats['chart7_values']) && count($stats['chart7_values']) > 0;
+/* ---------- Flags: served by your own Matomo server (no third-party requests) ---------- */
+$flag = function ($code) use ($stats, $matomoUrl, $e) {
+    $code = strtolower(trim((string) $code));
+
+    if (!preg_match('/^[a-z]{2}$/', $code) || $code === 'xx') {
+        return '<span class="matomo-flag-wrapper matomo-flag-empty"></span>';
+    }
+
+    $path = $stats['flags'][$code] ?? ('plugins/Morpheus/icons/dist/flags/' . $code . '.png');
+
+    return '<span class="matomo-flag-wrapper"><img class="matomo-flag-img" src="' . $e($matomoUrl . '/' . ltrim($path, '/'))
+        . '" width="16" height="12" alt="" loading="lazy" decoding="async"></span>';
+};
+
+$emptyRow = '<div class="matomo-empty">' . $tr('MOD_MATOMO_COUNTER_LIVE_NO_VISITORS') . '</div>';
+
+/* ---------- Simple "online" list ---------- */
+$onlineBlock = function ($titleKey, $iconPaths, array $items, callable $labelFn) use ($tr, $num, $e, $icon, $emptyRow) {
+    $total = array_sum(array_column($items, 'count'));
+
+    $h  = '<div class="matomo-section"><div class="matomo-section-title"><span class="matomo-title-text">' . $icon($iconPaths) . $tr($titleKey) . '</span>';
+    $h .= '<span class="matomo-badge-count">' . $num($total) . '</span></div>';
+
+    if ($items) {
+        foreach ($items as $key => $item) {
+            list($labelHtml, $title) = $labelFn($key, $item);
+
+            $h .= '<div class="matomo-metric-row" title="' . $e($title) . '"><div class="matomo-metric-label">' . $labelHtml . '</div>'
+                . '<div class="matomo-row-end"><span class="matomo-dot-indicator"></span><span class="matomo-metric-value">' . (int) ($item['count'] ?? 0) . '</span></div></div>';
+        }
+    } else {
+        $h .= $emptyRow;
+    }
+
+    return $h . '</div>';
+};
+
+/* ---------- "Top" list with a period selector and percent bars ---------- */
+$topBlock = function ($name, $titleKey, $iconPaths, callable $labelFn) use ($stats, $uid, $tr, $num, $e, $icon, $emptyRow) {
+    $periods = ['day', 'yesterday', 'week', 'month'];
+    $group   = 'top-' . $name;
+    $selId   = 'matomo-sel-' . $uid . '-' . $name;
+
+    $h  = '<div class="matomo-section"><div class="matomo-section-title"><span class="matomo-title-text">' . $icon($iconPaths) . $tr($titleKey) . '</span>';
+    $h .= '<select class="matomo-dropdown-select" id="' . $selId . '" data-mmc-switch="' . $group . '" aria-label="' . $tr('MOD_MATOMO_COUNTER_LIVE_PERIOD') . '">';
+    $h .= '<option value="day">' . $tr('MOD_MATOMO_COUNTER_LIVE_TODAY1') . '</option>';
+    $h .= '<option value="yesterday">' . $tr('MOD_MATOMO_COUNTER_LIVE_YESTERDAY_SHORT') . '</option>';
+    $h .= '<option value="week">7 ' . $tr('MOD_MATOMO_COUNTER_LIVE_DAYS') . '</option>';
+    $h .= '<option value="month">30 ' . $tr('MOD_MATOMO_COUNTER_LIVE_DAYS') . '</option>';
+    $h .= '</select></div>';
+
+    foreach ($periods as $p) {
+        $items = array_filter($stats['top_' . $name . '_' . $p] ?? [], function ($item) {
+            return (int) ($item['count'] ?? 0) > 0;
+        });
+        $total = array_sum(array_column($items, 'count'));
+
+        $h .= '<div class="matomo-top-block" data-mmc-group="' . $group . '" data-mmc-key="' . $p . '"' . ($p === 'day' ? '' : ' hidden') . '>';
+
+        if ($items) {
+            foreach ($items as $key => $item) {
+                $count   = (int) ($item['count'] ?? 0);
+                $percent = $total > 0 ? round($count / $total * 100) : 0;
+
+                list($labelHtml, $title) = $labelFn($key, $item);
+
+                $h .= '<div class="matomo-country-block" title="' . $e($title) . '">'
+                    . '<div class="matomo-metric-row matomo-top-row"><div class="matomo-metric-label">' . $labelHtml . '</div>'
+                    . '<div class="matomo-row-end"><span class="matomo-metric-value">' . $num($count) . '</span><span class="matomo-percent">' . $percent . '%</span></div></div>'
+                    . '<svg class="matomo-bar" width="100%" height="6" aria-hidden="true" focusable="false">'
+                    . '<rect class="matomo-bar-bg" width="100%" height="6" rx="3"></rect>'
+                    . '<rect class="matomo-bar-fg" width="' . $percent . '%" height="6" rx="3"></rect></svg></div>';
+            }
+        } else {
+            $h .= $emptyRow;
+        }
+
+        $h .= '</div>';
+    }
+
+    return $h . '</div>';
+};
+
+/* ---------- Visits chart (line with peak + average, or bars) ---------- */
+$monthNames = [];
+for ($m = 1; $m <= 12; $m++) {
+    $monthNames[$m] = $t->t('MOD_MATOMO_COUNTER_MONTH_' . $m);
+}
+
+$buildChart = function ($n, $chartStyle) use ($stats, $monthNames, $params, $t, $e, $tr, $f) {
+    $key    = $n === 7 ? 'chart7' : 'chart30';
+    $values = array_map('intval', $stats[$key . '_values'] ?? []);
+    $count  = count($values);
+
+    if ($count < 2) {
+        return '<div class="matomo-empty">' . $tr('MOD_MATOMO_COUNTER_LIVE_NO_VISITORS') . '</div>';
+    }
+
+    $dates = $stats[$key . '_dates'] ?? [];
+    if (count($dates) !== $count) {
+        $dates = [];
+        for ($i = 0; $i < $count; $i++) {
+            $dates[] = date('Y-m-d', strtotime('-' . ($count - 1 - $i) . ' days'));
+        }
+    }
+
+    $fmtDate = function ($ymd, $withMonth) use ($monthNames) {
+        $ts  = strtotime($ymd);
+        $day = (int) date('j', $ts);
+
+        return $withMonth ? $day . ' ' . $monthNames[(int) date('n', $ts)] : (string) $day;
+    };
+
+    $total = array_sum($values);
+    $prev  = (int) ($stats[$n === 7 ? 'week_prev' : 'month_prev'] ?? 0);
+    $maxV  = max($values);
+    $avg   = $total / $count;
+
+    // Same viewBox, stroke widths and marker sizes for 7 and 30 days
+    $W = 320; $H = 150; $L = 30; $R = 8; $T = 16; $B = 22;
+
+    if ($maxV <= 10) {
+        $max = max(2, (int) ceil($maxV / 2) * 2);
+    } else {
+        $pw  = pow(10, floor(log10($maxV)));
+        $max = (int) round(10 * $pw);
+        foreach ([1.2, 1.6, 2, 3, 4, 5, 6, 8, 10] as $mul) {
+            if ($maxV <= $mul * $pw) { $max = (int) round($mul * $pw); break; }
+        }
+    }
+
+    $yOf = function ($v) use ($T, $H, $B, $max) { return $T + ($H - $T - $B) * (1 - $v / $max); };
+    $y0  = $yOf(0);
+
+    $svg = '<svg viewBox="0 0 ' . $W . ' ' . $H . '" width="100%" role="img" aria-label="' . $tr('MOD_MATOMO_COUNTER_LIVE_CHART_TITLE') . '">';
+
+    foreach ([0, $max / 2, $max] as $tick) {
+        $y    = $yOf($tick);
+        $svg .= '<line class="' . ($tick == 0 ? 'mmc-grid-base' : 'mmc-grid') . '" x1="' . $L . '" x2="' . ($W - $R) . '" y1="' . $f($y) . '" y2="' . $f($y) . '"/>';
+        $svg .= '<text class="mmc-axis" x="' . ($L - 6) . '" y="' . $f($y + 4) . '" text-anchor="end" font-size="11">' . number_format($tick) . '</text>';
+    }
+
+    if ($n <= 7) {
+        $labelIdx = range(0, $count - 1);
+    } else {
+        $labelIdx = [];
+        for ($i = $count - 1; $i >= 0; $i -= 7) { $labelIdx[] = $i; }
+        $labelIdx = array_reverse($labelIdx);
+    }
+
+    if ($chartStyle === 'bars') {
+        $band = ($W - $L - $R) / $count;
+        $bw   = min(22, $band * 0.62);
+        $xOf  = function ($i) use ($L, $band) { return $L + $band * ($i + 0.5); };
+
+        foreach ($values as $i => $v) {
+            $y    = $yOf($v);
+            $svg .= '<rect class="' . ($i === $count - 1 ? 'mmc-bar-now' : 'mmc-bar-old') . '" x="' . $f($xOf($i) - $bw / 2) . '" y="' . $f($y) . '" width="' . $f($bw) . '" height="' . $f(max(0, $y0 - $y)) . '" rx="2"><title>'
+                . $e($fmtDate($dates[$i], true) . ': ' . number_format($v)) . '</title></rect>';
+        }
+    } else {
+        $xOf = function ($i) use ($L, $W, $R, $count) { return $L + ($W - $L - $R) * $i / ($count - 1); };
+
+        $pts = [];
+        foreach ($values as $i => $v) { $pts[] = [$xOf($i), $yOf($v)]; }
+
+        // Smooth curve through every point (Catmull-Rom -> Bezier, control points clamped: no overshoot)
+        $path = 'M' . $f($pts[0][0]) . ',' . $f($pts[0][1]);
+        for ($i = 0; $i < $count - 1; $i++) {
+            $p0 = $pts[max($i - 1, 0)];
+            $p1 = $pts[$i];
+            $p2 = $pts[$i + 1];
+            $p3 = $pts[min($i + 2, $count - 1)];
+            $lo = min($p1[1], $p2[1]);
+            $hi = max($p1[1], $p2[1]);
+
+            $c1x = $p1[0] + ($p2[0] - $p0[0]) / 6;
+            $c1y = min(max($p1[1] + ($p2[1] - $p0[1]) / 6, $lo), $hi);
+            $c2x = $p2[0] - ($p3[0] - $p1[0]) / 6;
+            $c2y = min(max($p2[1] - ($p3[1] - $p1[1]) / 6, $lo), $hi);
+
+            $path .= ' C' . $f($c1x) . ',' . $f($c1y) . ' ' . $f($c2x) . ',' . $f($c2y) . ' ' . $f($p2[0]) . ',' . $f($p2[1]);
+        }
+
+        $ya   = $yOf($avg);
+        $svg .= '<line class="mmc-avg-line" x1="' . $L . '" x2="' . ($W - $R) . '" y1="' . $f($ya) . '" y2="' . $f($ya) . '"/>';
+        $svg .= '<path class="mmc-line" d="' . $path . '"/>';
+
+        $pk   = $pts[array_search($maxV, $values, true)];
+        $lx   = min(max($pk[0], $L + 24), $W - $R - 24);
+        $svg .= '<circle class="mmc-peak-dot" cx="' . $f($pk[0]) . '" cy="' . $f($pk[1]) . '" r="4"/>';
+        $svg .= '<text class="mmc-peak-label" x="' . $f($lx) . '" y="' . $f($pk[1] - 9) . '" text-anchor="middle" font-size="11">' . $e($t->t('MOD_MATOMO_COUNTER_LIVE_PEAK') . ' ' . number_format($maxV)) . '</text>';
+
+        foreach ($pts as $i => $pt) {
+            $svg .= '<circle class="matomo-hit" cx="' . $f($pt[0]) . '" cy="' . $f($pt[1]) . '" r="9"><title>' . $e($fmtDate($dates[$i], true) . ': ' . number_format($values[$i])) . '</title></circle>';
+        }
+    }
+
+    foreach ($labelIdx as $i) {
+        $isLastLong = ($n > 7 && $i === $count - 1);
+        $svg .= '<text class="mmc-axis" x="' . $f($isLastLong ? $W : $xOf($i)) . '" y="' . ($H - 6) . '" text-anchor="' . ($isLastLong ? 'end' : 'middle') . '" font-size="11">' . $e($fmtDate($dates[$i], $n > 7)) . '</text>';
+    }
+
+    $svg .= '</svg>';
+
+    $chip = '';
+    if ($params->get('compare_previous') && $prev > 0) {
+        $pct  = (int) round(($total - $prev) / $prev * 100);
+        $chip = '<span class="matomo-chip ' . ($pct >= 0 ? 'matomo-chip-up' : 'matomo-chip-down') . '" title="' . $tr('MOD_MATOMO_COUNTER_LIVE_VS_PREV') . '">' . ($pct >= 0 ? '+' : '') . $pct . '%</span>';
+    }
+
+    $avgHtml = '';
+    if ($chartStyle === 'line') {
+        $avgHtml = '<div class="matomo-chart-avg"><svg width="18" height="2" viewBox="0 0 18 2" aria-hidden="true"><line class="mmc-avg-line" x1="0" y1="1" x2="18" y2="1"/></svg>'
+            . $tr('MOD_MATOMO_COUNTER_LIVE_AVG') . ' ' . number_format($avg) . '</div>';
+    }
+
+    $header = '<div class="matomo-chart-head"><div><span class="matomo-chart-total">' . number_format($total) . '</span>'
+        . '<span class="matomo-chart-caption">' . $tr('MOD_MATOMO_COUNTER_LIVE_VISITS_LABEL') . ' / ' . $n . ' ' . $tr('MOD_MATOMO_COUNTER_LIVE_DAYS') . '</span></div>'
+        . $chip . $avgHtml . '</div>';
+
+    return $header . $svg;
+};
+
+/* ---------- Admin-only notices ---------- */
+$humanAge = function ($sec) {
+    $sec = (int) $sec;
+
+    return $sec < 120 ? $sec . ' s' : ($sec < 7200 ? floor($sec / 60) . ' min' : floor($sec / 3600) . ' h');
+};
+
+$isConnectionOk = ($stats['status'] ?? '') !== 'error' && empty($meta['stale']);
 ?>
+<?php if ($isAdmin && !empty($meta['stale']) && $errorText) : ?>
+    <div class="matomo-alert" role="alert"><?php echo $tr('MOD_MATOMO_COUNTER_NOTICE_STALE', $humanAge($meta['age'] ?? 0), $errorText); ?></div>
+<?php elseif ($isAdmin && $errorText) : ?>
+    <div class="matomo-alert" role="alert"><?php echo $e($errorText); ?></div>
+<?php endif; ?>
+
+<?php if ($isAdmin && !empty($meta['warnings'])) : ?>
+    <div class="matomo-alert" role="alert">
+        <?php echo $tr('MOD_MATOMO_COUNTER_NOTICE_WARNINGS'); ?>
+        <?php foreach (array_slice($meta['warnings'], 0, 3) as $w) : ?>
+            <div><?php echo $e($w); ?></div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
 
 <div class="matomo-section">
-        <?php if ($visibility['online']) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#10b981"><circle cx="12" cy="12" r="8"/></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_ONLINE'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value online"><?php echo number_format($stats['online']); ?></div>
+    <?php if ($visibility['online']) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#10b981" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_ONLINE', $window); ?>:</span>
             </div>
-        <?php endif; ?>
+            <div class="matomo-metric-value online"><?php echo $num($stats['online']); ?></div>
+        </div>
+    <?php endif; ?>
 
-        <?php if ($visibility['today']) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_TODAY'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value"><?php echo number_format($stats['today']); ?></div>
+    <?php if ($visibility['today']) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_TODAY'); ?>:</span>
             </div>
-        <?php endif; ?>
+            <div class="matomo-metric-value"><?php echo $num($stats['today']); ?></div>
+        </div>
+    <?php endif; ?>
 
-        <?php if ($visibility['today_views']) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_VIEWS'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value"><?php echo number_format($stats['today_views']); ?></div>
+    <?php if ($visibility['today_views']) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" aria-hidden="true" focusable="false"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_VIEWS'); ?>:</span>
             </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($visibility['yesterday'])) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_YESTERDAY'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value"><?php echo number_format($stats['yesterday'] ?? 0); ?></div>
-            </div>
-        <?php endif; ?>
+            <div class="matomo-metric-value"><?php echo $num($stats['today_views']); ?></div>
+        </div>
+    <?php endif; ?>
 
-        <?php if ($visibility['week']) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_WEEK'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value"><?php echo number_format($stats['week']); ?></div>
+    <?php if (!empty($visibility['yesterday'])) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_YESTERDAY'); ?>:</span>
             </div>
-        <?php endif; ?>
+            <div class="matomo-metric-value"><?php echo $num($stats['yesterday'] ?? 0); ?></div>
+        </div>
+    <?php endif; ?>
 
-        <?php if ($visibility['month']) : ?>
-            <div class="matomo-metric-row">
-                <div class="matomo-metric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_MONTH'); ?>:</span>
-                </div>
-                <div class="matomo-metric-value"><?php echo number_format($stats['month']); ?></div>
+    <?php if ($visibility['week']) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" aria-hidden="true" focusable="false"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_WEEK'); ?>:</span>
             </div>
-        <?php endif; ?>
+            <div class="matomo-metric-value"><?php echo $num($stats['week']); ?></div>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($visibility['month']) : ?>
+        <div class="matomo-metric-row">
+            <div class="matomo-metric-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span><?php echo $tr('MOD_MATOMO_COUNTER_LIVE_MONTH'); ?>:</span>
+            </div>
+            <div class="matomo-metric-value"><?php echo $num($stats['month']); ?></div>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php
+if ($visibility['countries']) {
+    echo $onlineBlock('MOD_MATOMO_COUNTER_LIVE_COUNTRIES_TITLE', $icons['globe'], $stats['countries'] ?? [], function ($code, $item) use ($flag, $e) {
+        $name = $item['name'] ?? $code;
+
+        return [$flag($code === 'unknown' ? '' : $code) . '<span class="matomo-label-text">' . $e($name) . '</span>', $name];
+    });
+}
+
+if (!empty($visibility['cities'])) {
+    echo $onlineBlock('MOD_MATOMO_COUNTER_LIVE_CITIES_TITLE', $icons['pin'], $stats['cities'] ?? [], function ($key, $item) use ($flag, $e) {
+        return [$flag($item['code'] ?? '') . '<span class="matomo-label-text">' . $e($item['name'] ?? '') . '</span>', $item['title'] ?? $item['name'] ?? ''];
+    });
+}
+
+if ($visibility['top_countries']) {
+    echo $topBlock('countries', 'MOD_MATOMO_COUNTER_LIVE_TOP_COUNTRIES_TITLE', $icons['pie'], function ($code, $item) use ($flag, $e) {
+        $name = $item['name'] ?? $code;
+
+        return [$flag($code) . '<span class="matomo-label-text">' . $e($name) . '</span>', $name];
+    });
+}
+
+if (!empty($visibility['top_cities'])) {
+    echo $topBlock('cities', 'MOD_MATOMO_COUNTER_LIVE_TOP_CITIES_TITLE', $icons['bars'], function ($key, $item) use ($flag, $e) {
+        return [$flag($item['code'] ?? '') . '<span class="matomo-label-text">' . $e($item['name'] ?? '') . '</span>', $item['title'] ?? $item['name'] ?? ''];
+    });
+}
+
+$plainLabel = function ($key, $item) use ($e) {
+    return ['<span class="matomo-label-text">' . $e($item['name'] ?? '') . '</span>', $item['title'] ?? $item['name'] ?? ''];
+};
+
+if (!empty($visibility['top_pages'])) {
+    echo $topBlock('pages', 'MOD_MATOMO_COUNTER_LIVE_TOP_PAGES_TITLE', $icons['file'], $plainLabel);
+}
+
+if (!empty($visibility['top_referrers'])) {
+    echo $topBlock('referrers', 'MOD_MATOMO_COUNTER_LIVE_TOP_REFERRERS_TITLE', $icons['link'], $plainLabel);
+}
+
+if (!empty($visibility['top_devices'])) {
+    echo $topBlock('devices', 'MOD_MATOMO_COUNTER_LIVE_TOP_DEVICES_TITLE', $icons['monitor'], $plainLabel);
+}
+?>
+
+<?php if ($visibility['chart']) : ?>
+    <?php $asBars = $tr('MOD_MATOMO_COUNTER_LIVE_CHART_AS_BARS'); $asLine = $tr('MOD_MATOMO_COUNTER_LIVE_CHART_AS_LINE'); ?>
+    <div class="matomo-section matomo-chart-section" data-mmc-chart-style="<?php echo $chartStyle; ?>">
+        <div class="matomo-section-title">
+            <span class="matomo-title-text"><?php echo $icon($icons['trend']) . $tr('MOD_MATOMO_COUNTER_LIVE_CHART_TITLE'); ?></span>
+            <span class="matomo-title-controls">
+                <button type="button" class="matomo-icon-btn matomo-chart-toggle" data-mmc-chart-toggle
+                        data-label-line="<?php echo $asLine; ?>" data-label-bars="<?php echo $asBars; ?>"
+                        title="<?php echo $chartStyle === 'line' ? $asBars : $asLine; ?>" aria-label="<?php echo $chartStyle === 'line' ? $asBars : $asLine; ?>">
+                    <span class="matomo-ico-line"><?php echo $icon($icons['trend'], 'matomo-btn-icon'); ?></span>
+                    <span class="matomo-ico-bars"><?php echo $icon($icons['bars'], 'matomo-btn-icon'); ?></span>
+                </button>
+                <select class="matomo-dropdown-select" id="matomo-sel-<?php echo $uid; ?>-chart" data-mmc-switch="chart" aria-label="<?php echo $tr('MOD_MATOMO_COUNTER_LIVE_PERIOD'); ?>">
+                    <option value="7">7 <?php echo $tr('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
+                    <option value="30">30 <?php echo $tr('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
+                </select>
+            </span>
+        </div>
+
+        <?php foreach ([7, 30] as $n) : ?>
+            <?php foreach (['line', 'bars'] as $style) : ?>
+                <div class="matomo-chart-block" data-mmc-group="chart" data-mmc-key="<?php echo $n; ?>" data-mmc-style="<?php echo $style; ?>"<?php echo $n === 7 ? '' : ' hidden'; ?>><?php echo $buildChart($n, $style); ?></div>
+            <?php endforeach; ?>
+        <?php endforeach; ?>
     </div>
+<?php endif; ?>
 
-    <?php if ($visibility['countries']) : ?>
-        <div class="matomo-section">
-            <div class="matomo-section-title">
-                <span class="d-flex align-items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                    <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_COUNTRIES_TITLE'); ?>
-                </span>
-                <span class="matomo-badge-count">
-                    <?php 
-                    $totalOnlineCountries = 0;
-                    if (!empty($stats['countries'])) {
-                        foreach ($stats['countries'] as $c) {
-                            $totalOnlineCountries += ($c['count'] ?? 0);
-                        }
-                    }
-                    echo $totalOnlineCountries; 
-                    ?>
-                </span>
-            </div>
+<?php if (!empty($debugMode)) : ?>
+    <div class="matomo-card-footer">
+        <div class="matomo-status">
+            <?php if ($isConnectionOk) : ?>
+                <span class="matomo-dot-indicator status-ok"></span>
+                <span class="matomo-status-text matomo-status-ok-text">API CONNECTION OK</span>
+            <?php else : ?>
+                <span class="matomo-dot-indicator status-error"></span>
+                <span class="matomo-status-text matomo-status-error-text"><?php echo empty($meta['stale']) ? 'API CONNECTION ERROR' : 'SHOWING STALE DATA'; ?></span>
+            <?php endif; ?>
 
-            <?php if (!empty($stats['countries'])) : ?>
-                <?php foreach ($stats['countries'] as $code => $country) : ?>
-                    <?php $codeClean = strtolower(trim($code)); ?>
-                    <div class="matomo-metric-row">
-                        <div class="matomo-metric-label">
-                            <?php if ($codeClean !== 'unknown' && !empty($codeClean)) : ?>
-                                <div class="matomo-flag-wrapper">
-                                    <img class="matomo-flag-img" 
-                                         src="https://flagcdn.com/16x12/<?php echo $codeClean; ?>.png"
-                                         srcset="https://flagcdn.com/32x24/<?php echo $codeClean; ?>.png 2x, https://flagcdn.com/48x36/<?php echo $codeClean; ?>.png 3x"
-                                         width="16"
-                                         height="12"
-                                         alt="<?php echo htmlspecialchars($country['name'] ?? $codeClean); ?>">
-                                </div>
-                            <?php else: ?>
-                                <span class="matomo-flag-wrapper" style="background: #e2e8f0;"></span>
-                            <?php endif; ?>
-                            <span><?php echo htmlspecialchars($country['name'] ?? $codeClean); ?></span>
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="matomo-dot-indicator"></span>
-                            <span class="matomo-metric-value"><?php echo $country['count'] ?? 0; ?></span>
-                        </div>
+            <?php if (!empty($canRefresh)) : ?>
+                <button type="button" class="matomo-icon-btn matomo-refresh-btn" data-mmc-refresh
+                        title="<?php echo $tr('MOD_MATOMO_COUNTER_LIVE_REFRESH'); ?>" aria-label="<?php echo $tr('MOD_MATOMO_COUNTER_LIVE_REFRESH'); ?>">
+                    <?php echo $icon('<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>', 'matomo-btn-icon'); ?>
+                </button>
+            <?php endif; ?>
+        </div>
+
+        <?php if (!empty($stats['debug_info'])) : ?>
+            <?php $d = $stats['debug_info']; ?>
+            <div class="matomo-debug-grid">
+                <?php foreach (['Source' => 'source', 'Cache' => 'cache', 'Connection' => 'connection', 'Age' => 'age', 'HTTP' => 'http_code', 'Duration' => 'duration', 'PHP' => 'php_ver', 'Memory' => 'memory', 'Matomo' => 'matomo_ver', 'Size' => 'size'] as $label => $field) : ?>
+                    <div class="matomo-debug-item">
+                        <span class="matomo-debug-label"><?php echo $label; ?>:</span>
+                        <span class="matomo-debug-value"><?php echo $e($d[$field] ?? '-'); ?></span>
                     </div>
                 <?php endforeach; ?>
-            <?php else : ?>
-                <div class="matomo-metric-row" style="justify-content: center; color: #94a3b8; font-size: 13px; padding: 10px 0;">
-                    <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_NO_VISITORS'); ?></span>
-                </div>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
-
-    <?php if ($visibility['top_countries']) : ?>
-        <div class="matomo-section">
-            <div class="matomo-section-title">
-                <span class="d-flex align-items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #64748b;"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
-                    <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_TOP_COUNTRIES_TITLE'); ?>
-                </span>
-                <select class="matomo-dropdown-select" onchange="toggleMatomoTopCountries(this.value)">
-                    <option value="day"><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_TODAY1'); ?></option>
-                    <option value="yesterday"><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_YESTERDAY_SHORT'); ?></option>
-                    <option value="week">7 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
-                    <option value="month">30 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
-                </select>
             </div>
-            
-            <?php 
-            $periodsList = [
-                'day'   => $stats['top_countries_day'] ?? [],
-                'yesterday' => $stats['top_countries_yesterday'] ?? [],
-                'week'  => $stats['top_countries_week'] ?? [],
-                'month' => $stats['top_countries_month'] ?? []
-            ];
-            
-            foreach ($periodsList as $periodName => $periodData) : 
-                $totalPeriodVisits = array_sum(array_column($periodData, 'count'));
-                $displayStyle = ($periodName === 'day') ? 'block' : 'none';
-            ?>
-                <div id="matomo-top-<?php echo $periodName; ?>" class="matomo-top-countries-block" style="display: <?php echo $displayStyle; ?>;">
-                    <?php if (!empty($periodData)) : ?>
-                        <?php foreach ($periodData as $code => $country) : ?>
-                            <?php 
-                                $codeClean = strtolower(trim($code)); 
-                                $percent = $totalPeriodVisits > 0 ? round(($country['count'] / $totalPeriodVisits) * 100) : 0; 
-                            ?>
-                            <div class="matomo-country-block" style="margin-bottom: 12px;">
-                                <div class="matomo-metric-row" style="padding: 4px 0 2px 0;">
-                                    <div class="matomo-metric-label">
-                                        <?php if ($codeClean !== 'unknown' && !empty($codeClean)) : ?>
-                                            <div class="matomo-flag-wrapper">
-                                                <img class="matomo-flag-img" 
-                                                     src="https://flagcdn.com/16x12/<?php echo $codeClean; ?>.png"
-                                                     srcset="https://flagcdn.com/32x24/<?php echo $codeClean; ?>.png 2x, https://flagcdn.com/48x36/<?php echo $codeClean; ?>.png 3x"
-                                                     width="16"
-                                                     height="12"
-                                                     alt="<?php echo htmlspecialchars($country['name'] ?? $codeClean); ?>">
-                                            </div>
-                                        <?php else: ?>
-                                            <span class="matomo-flag-wrapper" style="background: #e2e8f0;"></span>
-                                        <?php endif; ?>
-                                        <span><?php echo htmlspecialchars($country['name'] ?? $codeClean); ?></span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="matomo-metric-value"><?php echo number_format($country['count'] ?? 0); ?></span>
-                                        <span style="font-size: 11px; color: #64748b; font-weight: 500; min-width: 28px; text-align: right;"><?php echo $percent; ?>%</span>
-                                    </div>
-                                </div>
-                                <div class="matomo-progress-bg" style="background: #f1f5f9; height: 6px; border-radius: 3px; width: 100%; overflow: hidden; margin-top: 4px;">
-                                    <div class="matomo-progress-bar" style="background: #3b82f6; height: 100%; width: <?php echo $percent; ?>%; border-radius: 3px; transition: width 0.3s ease;"></div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else : ?>
-                        <div class="matomo-metric-row" style="justify-content: center; color: #94a3b8; font-size: 13px; padding: 10px 0;">
-                            <span><?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_NO_VISITORS'); ?></span>
+
+            <?php if (!empty($d['api_methods'])) : ?>
+                <div class="matomo-debug-methods">
+                    <?php foreach ($d['api_methods'] as $methodName => $methodSize) : ?>
+                        <div class="matomo-debug-method">
+                            <span class="matomo-debug-method-name"><?php echo $e($methodName); ?></span>
+                            <span class="matomo-debug-method-size"><?php echo $e($methodSize); ?></span>
                         </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
-        </div>
-        
-        <script>
-        function toggleMatomoTopCountries(period) {
-            document.getElementById('matomo-top-day').style.display = 'none';
-            document.getElementById('matomo-top-yesterday').style.display = 'none';
-            document.getElementById('matomo-top-week').style.display = 'none';
-            document.getElementById('matomo-top-month').style.display = 'none';
-
-            if (period === 'day') {
-             document.getElementById('matomo-top-day').style.display = 'block';
-             } else if (period === 'yesterday') {
-              document.getElementById('matomo-top-yesterday').style.display = 'block';
-             } else if (period === 'week') {
-              document.getElementById('matomo-top-week').style.display = 'block';
-             } else if (period === 'month') {
-            document.getElementById('matomo-top-month').style.display = 'block';
-    }
-}
-</script>
-    <?php endif; ?>
-
-    <?php if ($visibility['chart']) : ?>
-        <div class="matomo-section">
-            <div class="matomo-section-title">
-                <span class="d-flex align-items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                    <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_CHART_TITLE'); ?>
-                </span>
-                <select class="matomo-dropdown-select" onchange="toggleMatomoChart(this.value)">
-                    <option value="7">7 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
-                    <option value="30">30 <?php echo \Joomla\CMS\Language\Text::_('MOD_MATOMO_COUNTER_LIVE_DAYS'); ?></option>
-                </select>
-            </div>
-            
-            <div id="matomo-chart-7" class="matomo-chart-block pt-2">
-                <svg viewBox="0 0 380 90" width="100%" height="80">
-                    <line x1="45" y1="15" x2="370" y2="15" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3" />
-                    <line x1="45" y1="75" x2="370" y2="75" stroke="#e2e8f0" stroke-width="1" />
-                    <text x="38" y="20" text-anchor="end" fill="#475569" font-size="15" font-weight="700"><?php echo number_format($max7); ?></text>
-                    <text x="38" y="80" text-anchor="end" fill="#475569" font-size="15" font-weight="700">0</text>
-
-                    <path d="M 45,75 L <?php echo $path7['str']; ?> L 370,75 Z" fill="rgba(37,99,235,0.06)"/>
-                    <polyline points="<?php echo $path7['str']; ?>" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    
-                    <?php if (!empty($path7['points'])) : foreach ($path7['points'] as $i => $p) : $pt = explode(',', $p); ?>
-                        <circle cx="<?php echo $pt[0]; ?>" cy="<?php echo $pt[1]; ?>" r="6" fill="#2563eb" stroke="#fff" stroke-width="2" class="matomo-chart-dot">
-                            <title><?php echo (!empty($stats['chart7_values'][$i]) ? number_format($stats['chart7_values'][$i]) : 0) . ' ' . \Joomla\CMS\Language\Text::_(''); ?></title>
-                        </circle>
-                    <?php endforeach; endif; ?>
-                </svg>
-                <div class="d-flex justify-content-between text-muted mt-1" style="font-size: 9px; padding: 0 4px 0 45px;">
-                    <?php if (!empty($stats['chart7_labels'])) : foreach ($stats['chart7_labels'] as $label) : ?>
-                        <span><?php echo $label; ?></span>
-                    <?php endforeach; endif; ?>
-                </div>
-            </div>
-
-            <div id="matomo-chart-30" class="matomo-chart-block pt-2" style="display: none;">
-                <svg viewBox="0 0 380 90" width="100%" height="80">
-                    <line x1="45" y1="15" x2="370" y2="15" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3" />
-                    <line x1="45" y1="75" x2="370" y2="75" stroke="#e2e8f0" stroke-width="1" />
-                    <text x="38" y="20" text-anchor="end" fill="#475569" font-size="15" font-weight="700"><?php echo number_format($max30); ?></text>
-                    <text x="38" y="80" text-anchor="end" fill="#475569" font-size="15" font-weight="700">0</text>
-
-                    <path d="M 45,75 L <?php echo $path30['str']; ?> L 370,75 Z" fill="rgba(37,99,235,0.06)"/>
-                    <polyline points="<?php echo $path30['str']; ?>" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    
-                    <?php 
-                    if (!empty($path30['points'])) : 
-                        $total30 = count($stats['chart30_values']);
-                        foreach ($path30['points'] as $i => $p) : 
-                            $currentVal = $stats['chart30_values'][$i] ?? 0;
-                            $prevVal = ($i > 0) ? ($stats['chart30_values'][$i - 1] ?? 0) : 0;
-                            $nextVal = ($i < $total30 - 1) ? ($stats['chart30_values'][$i + 1] ?? 0) : 0;
-
-                            if ($currentVal >= $prevVal && $currentVal >= $nextVal && $currentVal > 0) :
-                                $pt = explode(',', $p); 
-                    ?>
-                                <circle cx="<?php echo $pt[0]; ?>" cy="<?php echo $pt[1]; ?>" r="5" fill="#2563eb" stroke="#fff" stroke-width="1.5" class="matomo-chart-dot">
-                                    <title><?php echo number_format($currentVal) . ' ' . \Joomla\CMS\Language\Text::_(''); ?></title>
-                                </circle>
-                            <?php else : ?>
-                                <?php $pt = explode(',', $p); ?>
-                                <circle cx="<?php echo $pt[0]; ?>" cy="<?php echo $pt[1]; ?>" r="7" fill="transparent" class="matomo-chart-dot">
-                                    <title><?php echo number_format($currentVal) . ' ' . \Joomla\CMS\Language\Text::_(''); ?></title>
-                                </circle>
-                    <?php 
-                            endif;
-                        endforeach; 
-                    endif; 
-                    ?>
-                </svg>
-                <div class="d-flex justify-content-between text-muted mt-1" style="font-size: 9px; padding: 0 4px 0 45px;">
-                    <?php if (!empty($stats['chart30_labels'])) : foreach ($stats['chart30_labels'] as $label) : if(!empty($label)): ?>
-                        <span><?php echo $label; ?></span>
-                    <?php endif; endforeach; endif; ?>
-                </div>
-            </div>
-        </div>
-        
-        <script>
-        function toggleMatomoChart(days) {
-            document.getElementById('matomo-chart-7').style.display = (days === '7') ? 'block' : 'none';
-            document.getElementById('matomo-chart-30').style.display = (days === '30') ? 'block' : 'none';
-        }
-        </script>
-    <?php endif; ?>
-
-    <?php if (!empty($debugMode)) : ?>
-        <div class="matomo-card-footer">
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2">
-                    <?php if ($isConnectionOk) : ?>
-                        <span class="matomo-dot-indicator status-ok" title="Connection to Matomo established successfully"></span>
-                        <span style="color: #10b981; font-weight: 600; font-size: 11px; letter-spacing: 0.5px;">API CONNECTION OK</span>
-                    <?php else : ?>
-                        <span class="matomo-dot-indicator status-error" title="Connection error! Check the URL, Token or Site ID"></span>
-                        <span style="color: #ef4444; font-weight: 600; font-size: 11px; letter-spacing: 0.5px;">API CONNECTION ERROR</span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <?php if (!empty($stats['debug_info'])) : ?>
-                <div class="matomo-debug-grid">
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Source:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['source']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Cache:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['cache']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Connection:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['connection']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Age:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['age']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">HTTP:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['http_code']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Duration:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['duration'] ?? '0 ms'; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">PHP:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['php_ver']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Memory:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['memory']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Matomo:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['matomo_ver']; ?></span>
-                    </div>
-                    <div class="matomo-debug-item">
-                        <span class="matomo-debug-label">Size:</span>
-                        <span class="matomo-debug-value"><?php echo $stats['debug_info']['size']; ?></span>
-                    </div>
-                </div>
-
-                <?php if (!empty($stats['debug_info']['api_methods'])) : ?>
-                    <hr style="border-top: 1px dashed #e2e8f0; margin: 10px 0 8px 0;">
-                    <div class="matomo-debug-methods" style="font-family: monospace; font-size: 11px; line-height: 1.6;">
-                        <?php foreach ($stats['debug_info']['api_methods'] as $methodName => $methodSize) : ?>
-                            <div class="d-flex justify-content-between" style="color: #475569;">
-                                <span style="flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;">
-                                    <?php echo $methodName; ?>
-                                </span>
-                                <span style="color: #0f172a; font-weight: 600; flex-shrink: 0;">
-                                    <?php echo $methodSize; ?>
-                                </span>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
             <?php endif; ?>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
