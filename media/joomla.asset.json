@@ -1,0 +1,22 @@
+{
+    "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
+    "name": "mod_matomo_counter",
+    "version": "1.6.1",
+    "description": "Matomo Analytics Live Counter assets",
+    "license": "GPL-2.0-or-later",
+    "assets": [
+        {
+            "name": "mod_matomo_counter.counter",
+            "type": "style",
+            "uri": "mod_matomo_counter/counter.css"
+        },
+        {
+            "name": "mod_matomo_counter.counter",
+            "type": "script",
+            "uri": "mod_matomo_counter/counter.js",
+            "attributes": {
+                "defer": true
+            }
+        }
+    ]
+}

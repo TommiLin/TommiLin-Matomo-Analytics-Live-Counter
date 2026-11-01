@@ -1,0 +1,181 @@
+/* Matomo Analytics Live Counter. No inline styles are used in the markup (CSP friendly). */
+
+.matomo-live-wrap {
+    --mmc-text: #0f172a;
+    --mmc-text-2: #475569;
+    --mmc-muted: #64748b;       /* 4.8:1 on white */
+    --mmc-border: #f1f5f9;
+    --mmc-grid: #e2e8f0;
+    --mmc-grid-soft: #f1f5f9;
+    --mmc-surface: #ffffff;
+    --mmc-accent: #2563eb;
+    --mmc-ok: #10b981;
+    --mmc-ok-text: #047857;
+    --mmc-err-text: #b91c1c;
+    --mmc-badge-bg: #f1f5f9;
+    --mmc-bar-bg: #f1f5f9;
+    --mmc-bar: #3b82f6;
+    --mmc-footer: #fafafa;
+    --mmc-alert-bg: #fef2f2;
+    --mmc-alert-text: #991b1b;
+    --mmc-alert-border: #fecaca;
+    --mmc-up-bg: #ecfdf5;
+    --mmc-up-text: #047857;
+    --mmc-down-bg: #fef2f2;
+    --mmc-down-text: #b91c1c;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--mmc-text);
+}
+
+/* Dark theme: forced in the module settings, or automatic with Joomla's / Bootstrap's data-bs-theme="dark" */
+.matomo-live-wrap.matomo-theme-dark,
+[data-bs-theme="dark"] .matomo-live-wrap:not(.matomo-theme-light) {
+    --mmc-text: #e2e8f0;
+    --mmc-text-2: #cbd5e1;
+    --mmc-muted: #94a3b8;
+    --mmc-border: #334155;
+    --mmc-grid: #475569;
+    --mmc-grid-soft: #334155;
+    --mmc-surface: #212529;
+    --mmc-accent: #60a5fa;
+    --mmc-ok: #34d399;
+    --mmc-ok-text: #6ee7b7;
+    --mmc-err-text: #fca5a5;
+    --mmc-badge-bg: #334155;
+    --mmc-bar-bg: #334155;
+    --mmc-bar: #60a5fa;
+    --mmc-footer: #1e293b;
+    --mmc-alert-bg: #450a0a;
+    --mmc-alert-text: #fecaca;
+    --mmc-alert-border: #7f1d1d;
+    --mmc-up-bg: #064e3b;
+    --mmc-up-text: #6ee7b7;
+    --mmc-down-bg: #450a0a;
+    --mmc-down-text: #fca5a5;
+}
+
+.matomo-live-wrap [hidden] { display: none !important; }
+
+/* Kept for custom card layouts built on the old class names */
+.matomo-live-card {
+    background: #ffffff;
+    border: 1px solid #f0f2f5;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 30px;
+}
+
+.matomo-section { padding: 14px 2px; border-top: 1px solid var(--mmc-border); }
+.matomo-section-title {
+    font-size: 11px; font-weight: 700; color: var(--mmc-text-2); text-transform: uppercase; letter-spacing: 0.5px;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.matomo-title-text { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.matomo-title-icon { color: var(--mmc-muted); flex-shrink: 0; }
+
+.matomo-metric-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1px 0; font-size: 14px; color: var(--mmc-text-2);
+}
+.matomo-metric-label { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.matomo-label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matomo-row-end { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; }
+.matomo-metric-value { font-weight: 600; color: var(--mmc-text); }
+.matomo-metric-value.online { color: var(--mmc-ok); font-weight: 700; }   /* same light green as the status dot */
+.matomo-percent { font-size: 11px; color: var(--mmc-muted); font-weight: 500; min-width: 28px; text-align: right; }
+.matomo-badge-count { background: var(--mmc-badge-bg); color: var(--mmc-text-2); font-size: 11px; padding: 1px 7px; border-radius: 4px; }
+
+.matomo-empty { display: flex; justify-content: center; color: var(--mmc-muted); font-size: 13px; padding: 10px 0; }
+
+.matomo-flag-wrapper {
+    width: 16px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    overflow: hidden; border-radius: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); vertical-align: middle;
+}
+.matomo-flag-empty { background: var(--mmc-grid); }
+.matomo-flag-img { width: 16px; height: 12px; object-fit: cover; display: block; }
+.matomo-dot-indicator { width: 6px; height: 6px; background-color: var(--mmc-ok); border-radius: 50%; display: inline-block; }
+
+.matomo-dropdown-select {
+    border: 1px solid var(--mmc-grid); font-size: 11px; padding: 2px 6px; border-radius: 6px;
+    color: var(--mmc-text-2); background: var(--mmc-surface); cursor: pointer;
+}
+.matomo-dropdown-select:focus-visible { outline: 2px solid var(--mmc-accent); outline-offset: 1px; }
+
+/* Small icon buttons (chart style switch, manual refresh) */
+.matomo-title-controls { display: flex; align-items: center; gap: 6px; }
+.matomo-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; line-height: 1;
+    border: 1px solid var(--mmc-grid); border-radius: 6px; background: var(--mmc-surface); color: var(--mmc-text-2); cursor: pointer;
+}
+.matomo-icon-btn:hover { color: var(--mmc-accent); border-color: var(--mmc-accent); }
+.matomo-icon-btn:focus-visible { outline: 2px solid var(--mmc-accent); outline-offset: 1px; }
+.matomo-icon-btn[disabled] { cursor: default; opacity: 0.6; }
+.matomo-icon-btn > span { display: inline-flex; }
+
+/* The button shows the icon of the style a click switches to */
+.matomo-chart-section[data-mmc-chart-style="line"] .matomo-ico-line,
+.matomo-chart-section[data-mmc-chart-style="bars"] .matomo-ico-bars { display: none; }
+.matomo-chart-section[data-mmc-chart-style="line"] .matomo-chart-block[data-mmc-style="bars"],
+.matomo-chart-section[data-mmc-chart-style="bars"] .matomo-chart-block[data-mmc-style="line"] { display: none; }
+
+.matomo-refresh-btn { margin-left: auto; }
+.matomo-refresh-btn.is-loading .matomo-btn-icon { animation: mmc-spin 0.8s linear infinite; }
+@keyframes mmc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .matomo-refresh-btn.is-loading .matomo-btn-icon { animation: none; }
+}
+
+/* Top lists */
+.matomo-country-block { margin-bottom: 12px; }
+.matomo-top-row { padding: 4px 0 2px 0; }
+.matomo-bar { display: block; margin-top: 4px; }
+.matomo-bar-bg { fill: var(--mmc-bar-bg); }
+.matomo-bar-fg { fill: var(--mmc-bar); }
+
+/* Chart */
+.matomo-chart-block { padding-top: 8px; }
+.matomo-chart-block svg { display: block; }
+.matomo-chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.matomo-chart-total { font-size: 20px; font-weight: 700; color: var(--mmc-text); }
+.matomo-chart-caption { font-size: 12px; color: var(--mmc-muted); margin-left: 6px; }
+.matomo-chart-avg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mmc-muted); }
+.matomo-chip { font-size: 12px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+.matomo-chip-up { background: var(--mmc-up-bg); color: var(--mmc-up-text); }
+.matomo-chip-down { background: var(--mmc-down-bg); color: var(--mmc-down-text); }
+
+.mmc-axis { fill: var(--mmc-muted); }
+.mmc-grid { stroke: var(--mmc-grid-soft); stroke-width: 1; }
+.mmc-grid-base { stroke: var(--mmc-grid); stroke-width: 1; }
+.mmc-avg-line { stroke: var(--mmc-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.mmc-line { fill: none; stroke: var(--mmc-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mmc-peak-dot { fill: var(--mmc-accent); stroke: var(--mmc-surface); stroke-width: 2; }
+.mmc-peak-label { fill: var(--mmc-text); font-weight: 600; }
+.mmc-bar-old { fill: var(--mmc-accent); fill-opacity: 0.35; }
+.mmc-bar-now { fill: var(--mmc-accent); }
+.matomo-live-wrap.matomo-theme-dark .mmc-bar-old,
+[data-bs-theme="dark"] .matomo-live-wrap:not(.matomo-theme-light) .mmc-bar-old { fill-opacity: 0.5; }
+.matomo-hit { fill: transparent; cursor: pointer; }
+.matomo-hit:hover { fill: var(--mmc-accent); fill-opacity: 0.18; }
+
+/* Admin notices and debug footer */
+.matomo-alert {
+    font-size: 12px; line-height: 1.4; padding: 8px 10px; margin: 0 0 8px; border-radius: 6px;
+    background: var(--mmc-alert-bg); color: var(--mmc-alert-text); border: 1px solid var(--mmc-alert-border);
+}
+.matomo-card-footer { padding: 12px 22px; border-top: 1px solid var(--mmc-border); background-color: var(--mmc-footer); border-radius: 0 0 12px 12px; }
+.matomo-status { display: flex; align-items: center; gap: 8px; }
+.matomo-status-text { font-weight: 600; font-size: 11px; letter-spacing: 0.5px; }
+.matomo-status-ok-text { color: var(--mmc-ok-text); }
+.matomo-status-error-text { color: var(--mmc-err-text); }
+.matomo-dot-indicator.status-error { background-color: var(--mmc-err-text); }
+.matomo-debug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 8px; border-top: 1px dashed var(--mmc-grid); padding-top: 8px; }
+.matomo-debug-item { display: flex; justify-content: space-between; font-size: 11px; }
+.matomo-debug-label { color: var(--mmc-muted); }
+.matomo-debug-value { color: var(--mmc-text); font-weight: 600; }
+.matomo-debug-methods { font-family: monospace; font-size: 11px; line-height: 1.6; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--mmc-grid); }
+.matomo-debug-method { display: flex; justify-content: space-between; color: var(--mmc-text-2); }
+.matomo-debug-method-name { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+.matomo-debug-method-size { color: var(--mmc-text); font-weight: 600; flex-shrink: 0; }
