@@ -8,37 +8,39 @@
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Cache\Cache;
+use Joomla\CMS\Cache\CacheControllerFactoryInterface;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Filesystem\File;
 
 class Mod_Matomo_CounterInstallerScript
 {
     /**
-     * Вызывается при обновлении (upgrade) модуля
+     * Runs on upgrade: removes files left by older versions and clears the module cache.
      */
     public function update($parent)
     {
-        $this->removeLegacyFiles(); // Удаляем старые языковые файлы из корня
-        $this->clearJoomlaCache();  // Сбрасываем кэш
+        $this->removeLegacyFiles();
+        $this->clearModuleCache();
+
+        return true;
     }
 
     /**
-     * Вызывается при первой установке (install) модуля
+     * Runs on first install.
      */
     public function install($parent)
     {
-        $this->clearJoomlaCache();
+        $this->clearModuleCache();
+
+        return true;
     }
 
     /**
-     * Удаляет языковые файлы от старых версий модуля из глобальных папок Joomla
+     * Deletes files that older versions put into global Joomla folders or that this version no longer ships.
      */
     private function removeLegacyFiles()
     {
-        // Список возможных старых файлов (с префиксом языка и без него)
         $legacyFiles = [
-            // Файлы сайта (Frontend)
+            // Old frontend language files
             JPATH_SITE . '/language/en-GB/en-GB.mod_matomo_counter.ini',
             JPATH_SITE . '/language/en-GB/mod_matomo_counter.ini',
             JPATH_SITE . '/language/uk-UA/uk-UA.mod_matomo_counter.ini',
@@ -46,46 +48,47 @@ class Mod_Matomo_CounterInstallerScript
             JPATH_SITE . '/language/ru-RU/ru-RU.mod_matomo_counter.ini',
             JPATH_SITE . '/language/ru-RU/mod_matomo_counter.ini',
 
-            // Файлы админки (Backend - sys.ini)
+            // Old backend language files (sys.ini)
             JPATH_ADMINISTRATOR . '/language/en-GB/en-GB.mod_matomo_counter.sys.ini',
             JPATH_ADMINISTRATOR . '/language/en-GB/mod_matomo_counter.sys.ini',
             JPATH_ADMINISTRATOR . '/language/uk-UA/uk-UA.mod_matomo_counter.sys.ini',
             JPATH_ADMINISTRATOR . '/language/uk-UA/mod_matomo_counter.sys.ini',
             JPATH_ADMINISTRATOR . '/language/ru-RU/ru-RU.mod_matomo_counter.sys.ini',
             JPATH_ADMINISTRATOR . '/language/ru-RU/mod_matomo_counter.sys.ini',
+
+            // Unused helper of old versions (sent the token in the URL)
+            JPATH_SITE . '/modules/mod_matomo_counter/src/Helper/MatomoHelper.php',
         ];
 
         foreach ($legacyFiles as $file) {
             if (is_file($file)) {
-                File::delete($file);
+                @unlink($file);
             }
+        }
+
+        // Old self-made JSON cache files and stray lock files
+        foreach (glob(JPATH_CACHE . '/mod_matomo_counter/*.json') ?: [] as $file) {
+            @unlink($file);
+        }
+
+        foreach (glob(JPATH_CACHE . '/mod_matomo_counter_*.lock') ?: [] as $file) {
+            @unlink($file);
         }
     }
 
     /**
-     * Метод агрессивной очистки кэша системы и языков
+     * Clears the module's cache group through the Joomla Cache API.
      */
-    private function clearJoomlaCache()
+    private function clearModuleCache()
     {
         try {
-            $langCache = Cache::getInstance('callback', ['defaultoptions' => ['cachemethod' => 'callback']]);
-            $langCache->clean('_system');
+            $handler = Factory::getApplication()->get('cache_handler', '') ?: 'file';
 
-            $comModulesCache = Cache::getInstance('callback', ['defaultoptions' => ['cachemethod' => 'callback']]);
-            $comModulesCache->clean('com_modules');
-
-            $conf = Factory::getConfig();
-            $cacheClient = Cache::getInstance($conf->get('cache_handler', 'file'), [
-                'defaultoptions' => ['cachemethod' => $conf->get('cache_handler', 'file')]
-            ]);
-            $cacheClient->clean('page');
-            $cacheClient->clean('mod_modules');
-
-            if (method_exists(Factory::getApplication(), 'getContainer')) {
-                Factory::getApplication()->getContainer()->get(\Joomla\CMS\Extension\ComponentInterface::class)->getContainer()->getCache()->clean();
-            }
-        } catch (\Exception $e) {
-            // Игнорируем ошибки кэша
+            Factory::getContainer()->get(CacheControllerFactoryInterface::class)
+                ->createCacheController('output', ['defaultgroup' => 'mod_matomo_counter', 'caching' => true, 'storage' => $handler])
+                ->clean('mod_matomo_counter');
+        } catch (\Throwable $e) {
+            // A cache problem must never break the installation
         }
     }
 }
