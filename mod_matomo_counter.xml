@@ -7,7 +7,7 @@
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
     <authorEmail>tomilinsergeialex@gmail.com</authorEmail>
     <authorUrl>https://github.com/TommiLin</authorUrl>
-    <version>1.2.7</version>
+    <version>1.6.1</version>
     <description>MOD_MATOMO_COUNTER_DESCRIPTION</description>
     <namespace path="src">TommiLin\Module\MatomoCounter</namespace>
     <scriptfile>script.php</scriptfile>
@@ -20,10 +20,17 @@
     
     <files>
         <filename module="mod_matomo_counter">mod_matomo_counter.php</filename>
+        <filename>helper.php</filename>
         <folder>src</folder>
         <folder>tmpl</folder>
         <folder>language</folder>
     </files>
+
+    <media destination="mod_matomo_counter" folder="media">
+        <filename>joomla.asset.json</filename>
+        <folder>css</folder>
+        <folder>js</folder>
+    </media>
 
     <config>
         <fields name="params">
@@ -32,6 +39,11 @@
                 <field name="site_id" type="number" default="1" label="MOD_MATOMO_COUNTER_FIELD_SITEID_LABEL" required="true" />
                 <field name="token_auth" type="password" default="" label="MOD_MATOMO_COUNTER_FIELD_TOKEN_LABEL" description="MOD_MATOMO_COUNTER_FIELD_TOKEN_DESC" required="true" filter="string" />
                 <field name="cache_time" type="number" default="300" label="MOD_MATOMO_COUNTER_FIELD_CACHE_LABEL" required="true" />
+                <field name="verify_ssl" type="list" default="1" label="MOD_MATOMO_COUNTER_FIELD_VERIFY_SSL_LABEL" description="MOD_MATOMO_COUNTER_FIELD_VERIFY_SSL_DESC">
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field name="request_timeout" type="number" default="4" min="1" max="15" step="1" label="MOD_MATOMO_COUNTER_FIELD_TIMEOUT_LABEL" description="MOD_MATOMO_COUNTER_FIELD_TIMEOUT_DESC" />
                 <field name="force_language" type="list" default="site" label="MOD_MATOMO_COUNTER_FIELD_FORCE_LANG_LABEL" description="MOD_MATOMO_COUNTER_FIELD_FORCE_LANG_DESC">
                     <option value="site">MOD_MATOMO_COUNTER_LANG_AUTO</option>
                     <option value="uk-UA">Ukrainian (uk-UA)</option>
@@ -91,10 +103,66 @@
                     <option value="0">JHIDE</option>
                     <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
                 </field>
+                <field name="show_cities" type="list" default="1" label="MOD_MATOMO_COUNTER_METRIC_CITIES">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="show_top_cities" type="list" default="1" label="MOD_MATOMO_COUNTER_METRIC_TOP_CITIES">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="show_top_pages" type="list" default="0" label="MOD_MATOMO_COUNTER_METRIC_TOP_PAGES">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="title_strip" type="textarea" rows="3" default="" label="MOD_MATOMO_COUNTER_FIELD_TITLE_STRIP_LABEL" description="MOD_MATOMO_COUNTER_FIELD_TITLE_STRIP_DESC" filter="string" showon="show_top_pages:1,2" />
+                <field name="show_top_referrers" type="list" default="0" label="MOD_MATOMO_COUNTER_METRIC_TOP_REFERRERS">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="show_devices" type="list" default="0" label="MOD_MATOMO_COUNTER_METRIC_DEVICES">
+                    <option value="1">JSHOW</option>
+                    <option value="0">JHIDE</option>
+                    <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
                 <field name="show_chart" type="list" default="1" label="MOD_MATOMO_COUNTER_METRIC_CHART">
                     <option value="1">JSHOW</option>
                     <option value="0">JHIDE</option>
                     <option value="2">MOD_MATOMO_COUNTER_OPTION_ADMINS</option>
+                </field>
+                <field name="chart_style" type="list" default="line" label="MOD_MATOMO_COUNTER_FIELD_CHART_STYLE_LABEL" description="MOD_MATOMO_COUNTER_FIELD_CHART_STYLE_DESC" showon="show_chart:1,2">
+                    <option value="line">MOD_MATOMO_COUNTER_CHART_STYLE_LINE</option>
+                    <option value="bars">MOD_MATOMO_COUNTER_CHART_STYLE_BARS</option>
+                </field>
+            </fieldset>
+
+            <fieldset name="matomo_advanced" label="MOD_MATOMO_COUNTER_FIELDSET_ADVANCED">
+                <field name="online_window" type="list" default="30" label="MOD_MATOMO_COUNTER_FIELD_WINDOW_LABEL" description="MOD_MATOMO_COUNTER_FIELD_WINDOW_DESC">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="60">60</option>
+                </field>
+                <field name="rows_limit" type="list" default="5" label="MOD_MATOMO_COUNTER_FIELD_ROWS_LABEL" description="MOD_MATOMO_COUNTER_FIELD_ROWS_DESC">
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="7">7</option>
+                    <option value="10">10</option>
+                </field>
+                <field name="segment" type="text" default="" label="MOD_MATOMO_COUNTER_FIELD_SEGMENT_LABEL" description="MOD_MATOMO_COUNTER_FIELD_SEGMENT_DESC" filter="string" />
+                <field name="compare_previous" type="list" default="0" label="MOD_MATOMO_COUNTER_FIELD_COMPARE_LABEL" description="MOD_MATOMO_COUNTER_FIELD_COMPARE_DESC">
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
+                </field>
+                <field name="color_scheme" type="list" default="auto" label="MOD_MATOMO_COUNTER_FIELD_COLOR_LABEL" description="MOD_MATOMO_COUNTER_FIELD_COLOR_DESC">
+                    <option value="auto">MOD_MATOMO_COUNTER_COLOR_AUTO</option>
+                    <option value="light">MOD_MATOMO_COUNTER_COLOR_LIGHT</option>
+                    <option value="dark">MOD_MATOMO_COUNTER_COLOR_DARK</option>
                 </field>
             </fieldset>
         </fields>
